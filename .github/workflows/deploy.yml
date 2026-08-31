@@ -41,29 +41,44 @@ jobs:
         pip install certifi==2024.8.30 charset-normalizer==3.4.0 idna==3.10 requests==2.32.3 urllib3==2.2.3
 
     - name: Wait for a random execution time
+      id: random-wait
       shell: bash
       run: |
-        # 为当天北京时间 10:00–16:00（左闭右开）随机选择一个执行时刻。
+        # 在北京时间 10:00–16:00（左闭右开）内随机选择执行时刻。
         window_start=$(TZ=Asia/Shanghai date -d 'today 10:00' +%s)
         window_end=$(TZ=Asia/Shanghai date -d 'today 16:00' +%s)
-        random_offset=$(((RANDOM << 15 | RANDOM) % (window_end - window_start)))
-        target_time=$((window_start + random_offset))
         now=$(date +%s)
 
-        # GitHub 调度偶尔会延迟：若仍在窗口内则立即执行或等待到目标时刻；
-        # 若启动时已超过窗口则跳过，避免在指定时间外执行。
+        # 若启动时已超过窗口，跳过部署，避免在指定时间外执行。
         if ((now >= window_end)); then
-          echo 'The execution window has passed; skipping this run.'
+          echo "Current time: $(TZ=Asia/Shanghai date -d "@$now" '+%F %T %Z')"
+          echo "The execution window has passed; skipping this run."
+          echo 'should_run=false' >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
+        # GitHub 调度可能延迟。随机区间从“窗口开始”和“当前时刻”中较晚者开始，
+        # 确保不会选到已过去的随机时刻。
+        random_start=$now
+        if ((random_start < window_start)); then
+          random_start=$window_start
+        fi
+
+        random_offset=$(((RANDOM << 15 | RANDOM) % (window_end - random_start)))
+        target_time=$((random_start + random_offset))
         delay_seconds=$((target_time - now))
+
+        echo "Current time: $(TZ=Asia/Shanghai date -d "@$now" '+%F %T %Z')"
+        echo "Target time:  $(TZ=Asia/Shanghai date -d "@$target_time" '+%F %T %Z')"
+        echo "Waiting ${delay_seconds} seconds before running the deployment script."
+        echo 'should_run=true' >> "$GITHUB_OUTPUT"
+
         if ((delay_seconds > 0)); then
-          echo "Waiting ${delay_seconds} seconds before running the deployment script."
           sleep "$delay_seconds"
         fi
 
     - name: Run deployment script
+      if: steps.random-wait.outputs.should_run == 'true'
       env:
         WXREAD_CURL_BASH: ${{ secrets.WXREAD_CURL_BASH }}
         PUSH_METHOD: ${{ secrets.PUSH_METHOD }}
