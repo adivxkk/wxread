@@ -18,6 +18,14 @@ RENEW_URL = "https://weread.qq.com/web/login/renewal"
 FIX_SYNCKEY_URL = "https://weread.qq.com/web/book/chapterInfos"
 COOKIE_DATA_VARIANTS = [{"rq": "%2Fweb%2Fbook%2Fread", "ql": False},{"rq": "%2Fweb%2Fbook%2Fread", "ql": True},{"rq": "%2Fweb%2Fbook%2Fread"},]
 
+# 模拟真实阅读的节奏参数（秒），仍以约 30 秒/次为准
+PAGE_WAIT_MIN = 25.0
+PAGE_WAIT_MAX = 35.0
+PAGE_WAIT_DRIFT = 2.0
+LONG_PAUSE_RATE = 0.04
+LONG_PAUSE_MIN = 45.0
+LONG_PAUSE_MAX = 75.0
+
 
 def encode_data(data):
     """数据编码"""
@@ -37,6 +45,15 @@ def cal_hash(input_string):
         _19094e -= 2
 
     return hex(_7032f5 + _cc1055)[2:].lower()
+
+
+def next_page_wait(current_wait):
+    """返回（下一轮节奏，本次等待时长），模拟翻页间隔的缓慢漂移和偶尔停留。"""
+    if random.random() < LONG_PAUSE_RATE:
+        return current_wait, random.uniform(LONG_PAUSE_MIN, LONG_PAUSE_MAX)
+    next_wait = current_wait + random.uniform(-PAGE_WAIT_DRIFT, PAGE_WAIT_DRIFT)
+    next_wait = max(PAGE_WAIT_MIN, min(PAGE_WAIT_MAX, next_wait))
+    return next_wait, next_wait
 
 def get_wr_skey():
     """刷新cookie密钥"""
@@ -75,7 +92,8 @@ def refresh_cookie():
 
 refresh_cookie()
 index = 1
-lastTime = int(time.time()) - 30
+page_wait = random.uniform(PAGE_WAIT_MIN, PAGE_WAIT_MAX)
+lastTime = int(time.time()) - int(page_wait)
 logging.info(f"一共需要阅读 {READ_NUM} 次。")
 
 while index <= READ_NUM:
@@ -100,7 +118,9 @@ while index <= READ_NUM:
         if 'synckey' in resData:
             lastTime = thisTime
             index += 1
-            time.sleep(30)
+            if index <= READ_NUM:
+                page_wait, wait_seconds = next_page_wait(page_wait)
+                time.sleep(wait_seconds)
             refresh_print(f"阅读进度: 第 {min(index, READ_NUM + 1) - 1}/{READ_NUM} 次，已完成 {(index - 1) * 0.5:.1f} 分钟")
         else:
             logging.warning("无 synckey，尝试修复...")
