@@ -20,6 +20,7 @@ RUN mkdir -p /app/logs && chmod 777 /app/logs
 
 # 安装 Python 依赖
 RUN pip install --no-cache-dir \
+    curl_cffi>=0.6.2 \
     requests>=2.32.3 \
     urllib3>=2.2.3
 
