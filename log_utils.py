@@ -2,7 +2,7 @@ import logging
 import sys
 
 
-def setup_logging(width=120):
+def setup_logging(width=120, log_file=None):
     active = False
 
     def clear():
@@ -32,4 +32,10 @@ def setup_logging(width=120):
     handler = RefreshSafeHandler()
     handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)-8s - %(message)s"))
     root_logger.addHandler(handler)
+
+    if log_file:
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)-8s - %(message)s"))
+        root_logger.addHandler(file_handler)
+
     return refresh_print

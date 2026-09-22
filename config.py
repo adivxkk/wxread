@@ -8,11 +8,15 @@ import random
 默认使用本地值如果不存在从环境变量中获取值
 """
 
-# 阅读次数 默认40次/20分钟
-read_nums = os.getenv('READ_NUM') or '180-280'
-read_nums = read_nums.split('-')
-read_nums = [int(i) for i in read_nums]
-READ_NUM = random.randint(*read_nums) or 55
+# 阅读次数 默认40次/20分钟，支持 "次数" 或 "最小-最大" 两种写法
+# 单数字直接使用，范围则在区间内随机
+read_nums_str = os.getenv('READ_NUM') or '180-280'
+read_nums_split = read_nums_str.split('-')
+if len(read_nums_split) == 1:
+    READ_NUM = int(read_nums_split[0])
+else:
+    read_nums = [int(i) for i in read_nums_split]
+    READ_NUM = random.randint(read_nums[0], read_nums[-1])
 # 需要推送时可选，可选pushplus、wxpusher、telegram
 PUSH_METHOD = "" or os.getenv('PUSH_METHOD')
 # pushplus推送时需填
@@ -30,6 +34,28 @@ SERVERCHAN_SPT = "" or os.getenv("SERVERCHAN_SPT")
 curl_str = os.getenv('WXREAD_CURL_BASH')
 
 # headers、cookies是一个省略模版，本地或者docker部署时对应替换
+# 敏感登录凭据（wr_vid/wr_skey/wr_rt/wr_gid）不写在代码里：
+# 优先读环境变量 WR_VID / WR_SKEY / WR_RT / WR_GID，
+# 否则从项目根目录 .env 文件读取（每行 KEY=VALUE），该文件已加入 .gitignore
+
+def _load_env_file(path):
+    env = {}
+    try:
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    k, v = line.split('=', 1)
+                    env[k.strip()] = v.strip()
+    except FileNotFoundError:
+        pass
+    return env
+
+_env_file = _load_env_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
+def _secret(name):
+    return os.getenv(name) or _env_file.get(name)
+
 cookies = {
     'RK': 'oxEY1bTnXf',
     'ptcz': '53e3b35a9486dd63c4d06430b05aa169402117fc407dc5cc9329b41e59f62e2b',
@@ -38,6 +64,10 @@ cookies = {
     '_qimei_uuid42': '183070d3135100ee797b08bc922054dc3062834291',
     'wr_avatar': 'https%3A%2F%2Fthirdwx.qlogo.cn%2Fmmopen%2Fvi_32%2FeEOpSbFh2Mb1bUxMW9Y3FRPfXwWvOLaNlsjWIkcKeeNg6vlVS5kOVuhNKGQ1M8zaggLqMPmpE5qIUdqEXlQgYg%2F132',
     'wr_gender': '0',
+    'wr_vid': _secret('WR_VID'),
+    'wr_skey': _secret('WR_SKEY'),
+    'wr_rt': _secret('WR_RT'),
+    'wr_gid': _secret('WR_GID'),
 }
 
 headers = {
@@ -56,7 +86,12 @@ book = [
     "df232860813ab8735g012c68","6a632aa0813ab75dbg014c8f","02c32b30721d0fa702ca592","ed032e70813ab8735g0105a2",
     "79d32fd0813ab8736g017d11","5ca32c5071e0eec35ca1f19","dd432ce0813ab8734g018924","25e32f805b6af625e3c56b5"
 ]
-# 章节
+# 各书籍专属章节：书ID -> 该书的章节ID列表（按真实对应关系填写）
+# 未在此配置的书，回退使用下方公共章节列表 chapter
+BOOK_CHAPTERS = {
+    # "b0832f2072341655b087db3": ["ecc32f3013eccbc87e4b62e", "a87322c014a87ff679a21ea"],
+}
+# 公共章节列表（未配置专属章节的书使用）
 chapter = [
     "ecc32f3013eccbc87e4b62e","a87322c014a87ff679a21ea","e4d32d5015e4da3b7fbb1fa","16732dc0161679091c5aeb1",
     "8f132430178f14e45fce0f7","c9f326d018c9f0f895fb5e4","45c322601945c48cce2e120","d3d322001ad3d9446802347",
