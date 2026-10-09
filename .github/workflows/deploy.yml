@@ -50,12 +50,12 @@ jobs:
         now=$(date +%s)
 
         # 若启动时已超过窗口，跳过部署，避免在指定时间外执行。
-        if ((now >= window_end)); then
-          echo "Current time: $(TZ=Asia/Shanghai date -d "@$now" '+%F %T %Z')"
-          echo "The execution window has passed; skipping this run."
-          echo 'should_run=false' >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
+        # if ((now >= window_end)); then
+        #   echo "Current time: $(TZ=Asia/Shanghai date -d "@$now" '+%F %T %Z')"
+        #   echo "The execution window has passed; skipping this run."
+        #   echo 'should_run=false' >> "$GITHUB_OUTPUT"
+        #   exit 0
+        # fi
 
         # GitHub 调度可能延迟。随机区间从“窗口开始”和“当前时刻”中较晚者开始，
         # 确保不会选到已过去的随机时刻。
